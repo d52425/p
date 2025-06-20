@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>こけし作成WEBアプリ</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/picocss/2.0.6/pico.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        
+        .container-fluid {
+            padding: 1rem;
+            max-width: 100%;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 1rem;
+            height: calc(100vh - 80px);
+        }
+        
+        .canvas-container {
+            position: relative;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        
+        #three-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        .control-panel {
+            background: var(--pico-card-background-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        
+        .control-section {
+            margin-bottom: 1.5rem;
+        }
+        
+        .control-section h4 {
+            margin-bottom: 0.5rem;
+            color: var(--pico-color);
+            border-bottom: 1px solid var(--pico-muted-border-color);
+            padding-bottom: 0.25rem;
+        }
+        
+        .slider-group {
+            margin-bottom: 1rem;
+        }
+        
+        .slider-group label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-size: 0.9rem;
+        }
+        
+        .texture-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .texture-item {
+            width: 100%;
+            height: 60px;
+            border: 2px solid transparent;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background-size: cover;
+            background-position: center;
+        }
+        
+        .texture-item.active {
+            border-color: var(--pico-primary);
+            box-shadow: 0 0 0 2px rgba(var(--pico-primary-rgb), 0.2);
+        }
+        
+        .texture-item:hover {
+            transform: scale(1.05);
+        }
+        
+        .wood-texture {
+            background: linear-gradient(45deg, #D2B48C, #DEB887);
+        }
+        
+        .floral-texture {
+            background: linear-gradient(45deg, #FFB6C1, #FFC0CB, #FFE4E1);
+        }
+        
+        .geometric-texture {
+            background: repeating-linear-gradient(45deg, #4169E1, #4169E1 10px, #87CEEB 10px, #87CEEB 20px);
+        }
+        
+        .stripe-texture {
+            background: repeating-linear-gradient(0deg, #DC143C, #DC143C 5px, #FFE4E1 5px, #FFE4E1 10px);
+        }
+        
+        .upload-area {
+            border: 2px dashed var(--pico-muted-border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            text-align: center;
+            margin-top: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .upload-area:hover {
+            border-color: var(--pico-primary);
+            background-color: rgba(var(--pico-primary-rgb), 0.1);
+        }
+        
+        .upload-area.drag-over {
+            border-color: var(--pico-primary);
+            background-color: rgba(var(--pico-primary-rgb), 0.2);
+        }
+        
+        #file-input {
+            display: none;
+        }
+        
+        .export-section {
+            text-align: center;
+            padding-top: 1rem;
+            border-top: 1px solid var(--pico-muted-border-color);
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                grid-template-rows: 60vh 1fr;
+            }
+            
+            .control-panel {
+                max-height: 40vh;
+            }
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--pico-muted-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <header>
+            <h1>🪆 こけし作成WEBアプリ</h1>
+            <p>3Dでこけしをデザインしてカスタマイズしよう</p>
+        </header>
+        
+        <main class="main-content">
+            <div class="canvas-container">
+                <canvas id="three-canvas"></canvas>
+                <div id="loading" class="loading">読み込み中...</div>
+            </div>
+            
+            <div class="control-panel">
+                <div class="control-section">
+                    <h4>📏 サイズ調整</h4>
+                    <div class="slider-group">
+                        <label for="head-size">頭部サイズ</label>
+                        <input type="range" id="head-size" min="0.5" max="2" step="0.1" value="1">
+                        <small>現在: <span id="head-size-value">1.0</span></small>
+                    </div>
+                    <div class="slider-group">
+                        <label for="body-size">胴体サイズ</label>
+                        <input type="range" id="body-size" min="0.5" max="2" step="0.1" value="1">
+                        <small>現在: <span id="body-size-value">1.0</span></small>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h4>🎨 テクスチャ選択</h4>
+                    <div class="texture-grid">
+                        <div class="texture-item wood-texture active" data-texture="wood" title="木目調"></div>
+                        <div class="texture-item floral-texture" data-texture="floral" title="花柄"></div>
+                        <div class="texture-item geometric-texture" data-texture="geometric" title="幾何学模様"></div>
+                        <div class="texture-item stripe-texture" data-texture="stripe" title="ストライプ"></div>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h4>📁 カスタムテクスチャ</h4>
+                    <div class="upload-area" id="upload-area">
+                        <p>📎 画像をドラッグ＆ドロップ<br>または クリックして選択</p>
+                        <small>PNG, JPG形式 (最大5MB)</small>
+                    </div>
+                    <input type="file" id="file-input" accept="image/png,image/jpeg" />
+                </div>
+                
+                <div class="export-section">
+                    <button id="export-btn" class="outline">💾 画像として保存</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // アプリケーション状態管理
+        class StateManager {
+            constructor() {
+                this.state = {
+                    kokeshi: {
+                        headSize: 1.0,
+                        bodySize: 1.0,
+                        texture: 'wood'
+                    }
+                };
+                this.observers = new Map();
+            }
+            
+            setState(key, value) {
+                const keys = key.split('.');
+                let current = this.state;
+                
+                for (let i = 0; i < keys.length - 1; i++) {
+                    current = current[keys[i]];
+                }
+                current[keys[keys.length - 1]] = value;
+                
+                this.notify(key, value);
+            }
+            
+            getState(key) {
+                const keys = key.split('.');
+                let current = this.state;
+                
+                for (const k of keys) {
+                    current = current[k];
+                }
+                return current;
+            }
+            
+            subscribe(key, callback) {
+                if (!this.observers.has(key)) {
+                    this.observers.set(key, []);
+                }
+                this.observers.get(key).push(callback);
+            }
+            
+            notify(key, value) {
+                const callbacks = this.observers.get(key) || [];
+                callbacks.forEach(callback => callback(value));
+            }
+        }
+        
+        // Three.js 3D描画システム
+        class ThreeRenderer {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+                this.renderer = new THREE.WebGLRenderer({ 
+                    canvas: canvas,
+                    antialias: true,
+                    preserveDrawingBuffer: true
+                });
+                
+                this.kokeshiGroup = new THREE.Group();
+                this.headMesh = null;
+                this.bodyMesh = null;
+                
+                this.init();
+                this.setupLighting();
+                this.createKokeshi();
+                this.setupControls();
+                this.animate();
+            }
+            
+            init() {
+                this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
+                this.renderer.setPixelRatio(window.devicePixelRatio);
+                this.renderer.setClearColor(0x000000, 0);
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                
+                this.camera.position.set(0, 0, 5);
+                this.scene.add(this.kokeshiGroup);
+                
+                window.addEventListener('resize', () => this.onWindowResize());
+            }
+            
+            setupLighting() {
+                // 環境光
+                const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+                this.scene.add(ambientLight);
+                
+                // 指向性ライト
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(5, 5, 5);
+                directionalLight.castShadow = true;
+                directionalLight.shadow.mapSize.width = 1024;
+                directionalLight.shadow.mapSize.height = 1024;
+                this.scene.add(directionalLight);
+                
+                // ポイントライト
+                const pointLight = new THREE.PointLight(0xffffff, 0.4);
+                pointLight.position.set(-5, 2, 3);
+                this.scene.add(pointLight);
+            }
+            
+            createKokeshi() {
+                // 頭部（球体）
+                const headGeometry = new THREE.SphereGeometry(0.8, 32, 16);
+                const headMaterial = new THREE.MeshLambertMaterial({ 
+                    color: 0xD2B48C 
+                });
+                this.headMesh = new THREE.Mesh(headGeometry, headMaterial);
+                this.headMesh.position.y = 1.2;
+                this.headMesh.castShadow = true;
+                this.headMesh.receiveShadow = true;
+                
+                // 胴体（円柱）
+                const bodyGeometry = new THREE.CylinderGeometry(0.6, 0.8, 2, 32);
+                const bodyMaterial = new THREE.MeshLambertMaterial({ 
+                    color: 0xD2B48C 
+                });
+                this.bodyMesh = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                this.bodyMesh.position.y = -0.2;
+                this.bodyMesh.castShadow = true;
+                this.bodyMesh.receiveShadow = true;
+                
+                this.kokeshiGroup.add(this.headMesh);
+                this.kokeshiGroup.add(this.bodyMesh);
+                
+                // 簡単な顔の追加
+                this.addFace();
+            }
+            
+            addFace() {
+                // 目
+                const eyeGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+                const eyeMaterial = new THREE.MeshLambertMaterial({ color: 0x000000 });
+                
+                const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+                leftEye.position.set(-0.2, 1.3, 0.7);
+                
+                const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+                rightEye.position.set(0.2, 1.3, 0.7);
+                
+                // 口
+                const mouthGeometry = new THREE.RingGeometry(0.05, 0.08, 8, 1, 0, Math.PI);
+                const mouthMaterial = new THREE.MeshLambertMaterial({ 
+                    color: 0x8B0000,
+                    side: THREE.DoubleSide
+                });
+                const mouth = new THREE.Mesh(mouthGeometry, mouthMaterial);
+                mouth.position.set(0, 1.0, 0.75);
+                mouth.rotation.x = Math.PI;
+                
+                this.kokeshiGroup.add(leftEye);
+                this.kokeshiGroup.add(rightEye);
+                this.kokeshiGroup.add(mouth);
+            }
+            
+            setupControls() {
+                let isMouseDown = false;
+                let mouseX = 0;
+                let mouseY = 0;
+                
+                this.canvas.addEventListener('mousedown', (e) => {
+                    isMouseDown = true;
+                    mouseX = e.clientX;
+                    mouseY = e.clientY;
+                });
+                
+                this.canvas.addEventListener('mousemove', (e) => {
+                    if (!isMouseDown) return;
+                    
+                    const deltaX = e.clientX - mouseX;
+                    const deltaY = e.clientY - mouseY;
+                    
+                    this.kokeshiGroup.rotation.y += deltaX * 0.01;
+                    this.kokeshiGroup.rotation.x += deltaY * 0.01;
+                    
+                    mouseX = e.clientX;
+                    mouseY = e.clientY;
+                });
+                
+                this.canvas.addEventListener('mouseup', () => {
+                    isMouseDown = false;
+                });
+                
+                this.canvas.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    this.camera.position.z += e.deltaY * 0.01;
+                    this.camera.position.z = Math.max(2, Math.min(10, this.camera.position.z));
+                });
+                
+                // タッチ対応
+                this.canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    if (e.touches.length === 1) {
+                        isMouseDown = true;
+                        mouseX = e.touches[0].clientX;
+                        mouseY = e.touches[0].clientY;
+                    }
+                });
+                
+                this.canvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    if (!isMouseDown || e.touches.length !== 1) return;
+                    
+                    const deltaX = e.touches[0].clientX - mouseX;
+                    const deltaY = e.touches[0].clientY - mouseY;
+                    
+                    this.kokeshiGroup.rotation.y += deltaX * 0.01;
+                    this.kokeshiGroup.rotation.x += deltaY * 0.01;
+                    
+                    mouseX = e.touches[0].clientX;
+                    mouseY = e.touches[0].clientY;
+                });
+                
+                this.canvas.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    isMouseDown = false;
+                });
+            }
+            
+            updateKokeshi(property, value) {
+                switch(property) {
+                    case 'headSize':
+                        this.headMesh.scale.setScalar(value);
+                        break;
+                    case 'bodySize':
+                        this.bodyMesh.scale.setScalar(value);
+                        break;
+                    case 'texture':
+                        this.applyTexture(value);
+                        break;
+                }
+            }
+            
+            applyTexture(textureType) {
+                let color;
+                switch(textureType) {
+                    case 'wood':
+                        color = 0xD2B48C;
+                        break;
+                    case 'floral':
+                        color = 0xFFB6C1;
+                        break;
+                    case 'geometric':
+                        color = 0x4169E1;
+                        break;
+                    case 'stripe':
+                        color = 0xDC143C;
+                        break;
+                    default:
+                        color = 0xD2B48C;
+                }
+                
+                this.bodyMesh.material.color.setHex(color);
+            }
+            
+            applyCustomTexture(imageData) {
+                const loader = new THREE.TextureLoader();
+                const texture = loader.load(imageData);
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(1, 1);
+                
+                this.bodyMesh.material.map = texture;
+                this.bodyMesh.material.needsUpdate = true;
+            }
+            
+            exportImage() {
+                return this.renderer.domElement.toDataURL('image/png');
+            }
+            
+            onWindowResize() {
+                const width = this.canvas.clientWidth;
+                const height = this.canvas.clientHeight;
+                
+                this.camera.aspect = width / height;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(width, height);
+            }
+            
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                
+                // 自動回転（マウス操作がない時）
+                if (!this.canvas.matches(':hover')) {
+                    this.kokeshiGroup.rotation.y += 0.005;
+                }
+                
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+        
+        // UIコントローラー
+        class UIController {
+            constructor(stateManager, renderer) {
+                this.stateManager = stateManager;
+                this.renderer = renderer;
+                this.init();
+            }
+            
+            init() {
+                this.setupSliders();
+                this.setupTextureSelection();
+                this.setupFileUpload();
+                this.setupExport();
+            }
+            
+            setupSliders() {
+                const headSizeSlider = document.getElementById('head-size');
+                const bodySizeSlider = document.getElementById('body-size');
+                const headSizeValue = document.getElementById('head-size-value');
+                const bodySizeValue = document.getElementById('body-size-value');
+                
+                headSizeSlider.addEventListener('input', (e) => {
+                    const value = parseFloat(e.target.value);
+                    headSizeValue.textContent = value.toFixed(1);
+                    this.stateManager.setState('kokeshi.headSize', value);
+                    this.renderer.updateKokeshi('headSize', value);
+                });
+                
+                bodySizeSlider.addEventListener('input', (e) => {
+                    const value = parseFloat(e.target.value);
+                    bodySizeValue.textContent = value.toFixed(1);
+                    this.stateManager.setState('kokeshi.bodySize', value);
+                    this.renderer.updateKokeshi('bodySize', value);
+                });
+            }
+            
+            setupTextureSelection() {
+                const textureItems = document.querySelectorAll('.texture-item');
+                
+                textureItems.forEach(item => {
+                    item.addEventListener('click', () => {
+                        // アクティブ状態の更新
+                        textureItems.forEach(t => t.classList.remove('active'));
+                        item.classList.add('active');
+                        
+                        const texture = item.dataset.texture;
+                        this.stateManager.setState('kokeshi.texture', texture);
+                        this.renderer.updateKokeshi('texture', texture);
+                    });
+                });
+            }
+            
+            setupFileUpload() {
+                const uploadArea = document.getElementById('upload-area');
+                const fileInput = document.getElementById('file-input');
+                
+                uploadArea.addEventListener('click', () => {
+                    fileInput.click();
+                });
+                
+                uploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.add('drag-over');
+                });
+                
+                uploadArea.addEventListener('dragleave', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.remove('drag-over');
+                });
+                
+                uploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.remove('drag-over');
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        this.handleFile(files[0]);
+                    }
+                });
+                
+                fileInput.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.handleFile(e.target.files[0]);
+                    }
+                });
+            }
+            
+            handleFile(file) {
+                if (!file.type.match(/image\/(png|jpeg)/)) {
+                    alert('PNG または JPEG ファイルを選択してください。');
+                    return;
+                }
+                
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('ファイルサイズは5MB以下にしてください。');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.renderer.applyCustomTexture(e.target.result);
+                    // テクスチャ選択をリセット
+                    document.querySelectorAll('.texture-item').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            setupExport() {
+                const exportBtn = document.getElementById('export-btn');
+                exportBtn.addEventListener('click', () => {
+                    const imageData = this.renderer.exportImage();
+                    const link = document.createElement('a');
+                    link.download = `kokeshi_${Date.now()}.png`;
+                    link.href = imageData;
+                    link.click();
+                });
+            }
+        }
+        
+        // アプリケーション初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('three-canvas');
+            const loading = document.getElementById('loading');
+            
+            try {
+                const stateManager = new StateManager();
+                const renderer = new ThreeRenderer(canvas);
+                const uiController = new UIController(stateManager, renderer);
+                
+                // ローディング完了
+                setTimeout(() => {
+                    loading.style.display = 'none';
+                }, 1000);
+                
+            } catch (error) {
+                console.error('アプリケーションの初期化に失敗しました:', error);
+                loading.textContent = 'WebGLがサポートされていません。';
+            }
+        });
+    </script>
+</body>
+</html>
