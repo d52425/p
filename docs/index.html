@@ -8,16 +8,35 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.red.min.css"
     >
+    <style>
+    @media (min-width: 1024px) {
+      body>main>.hero .hook {
+        max-width: 700px;
+      }
+    }
+    body>main>.hero .hook {
+      z-index: 1;
+      position: relative;
+    }    
+    body>main>.hero .demo,
+    body>main>.hero .hook {
+      width: 100%;
+      min-width: 0;
+    }
+    </style>
+    
     <title>めんたい world!</title>
   </head>
   <body>
     <main class="container">
       <section class="hero">
-        <h1>Hello world!</h1>
-  
-        <div class="grid ctas">
-          <a role="button" href="https://x.com/intent/post?text=( ˘ω˘) ｽﾔｧ">ω</a>
-          <a role="button"href="https://x.com/intent/post?text=( ﾟдﾟ ) ｵﾊｯ!!">д</a>
+        <div class="hook">
+          <h1>めんたい world!</h1>
+          <h2>寝る前と起きた時に押すボタン</h2>
+          <div class="grid ctas">
+            <a role="button" href="https://x.com/intent/post?text=( ˘ω˘) ｽﾔｧ">ω</a>
+            <a role="button"href="https://x.com/intent/post?text=( ﾟдﾟ ) ｵﾊｯ!!">д</a>
+          </div>
         </div>
       </section>
     </main>
