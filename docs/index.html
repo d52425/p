@@ -29,16 +29,28 @@
 				<div class="grid">
 					<section>
 						<h2>おやすみボタン</h2>
-						<a role="button" href="https://x.com/intent/post?text=( ˘ω˘) ｽﾔｧ">ω ｽﾔ</a>
+						<button onclick="openTweetPopup('( ˘ω˘) ｽﾔｧ')">( ˘ω˘) ｽﾔｧ</button>
 					</section>
 					<section>
 						<h2>おはようボタン</h2>
-						<a role="button"href="https://x.com/intent/post?text=( ﾟдﾟ ) ｵﾊｯ!!">д ｵﾊ</a>
+						<button onclick="openTweetPopup('( ﾟдﾟ ) ｵﾊｯ!!">( ﾟдﾟ ) ｵﾊｯ!!</button>
 					</section>
 					<section>
 					</section>
 				</div>
 			</section>
 		</main>
+<script>
+function openTweetPopup(str) {
+  	const tweetText = encodeURIComponent(str);
+  	const tweetUrl = `https://twitter.com/intent/tweet?text=${tweetText}`;
+
+  	window.open(
+    		tweetUrl,
+    		'TweetWindow',
+    		'width=600,height=400,resizable=yes,scrollbars=yes'
+  	);
+}
+</script>
 	</body>
 </html>
